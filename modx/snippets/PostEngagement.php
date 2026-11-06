@@ -2,6 +2,19 @@
  * MODX 2 snippet: PostEngagement.
  * Paste into Manager without a PHP opening tag.
  */
+$mode = isset($mode) ? (string)$mode : 'article';
+if ($mode === 'list') {
+    // Do not query MySQL or create cookies per card. list.js batches IDs on DOM ready.
+    $listId = isset($id) && (int)$id > 0 ? (int)$id : (int)$modx->resource->get('id');
+    if ($listId < 1) return '';
+    $listAssets = rtrim($modx->getOption('assets_url'), '/') . '/components/modx-count-like/';
+    $modx->regClientScript($listAssets . 'list.js');
+    $listApi = htmlspecialchars($listAssets . 'api.php', ENT_QUOTES, 'UTF-8');
+    return '<span class="mcl-list-views" data-mcl-list-id="' . $listId . '" data-mcl-list-api="' . $listApi
+        . '" aria-label="Просмотры"><span aria-hidden="true">◉</span> <span data-mcl-list-count>0</span></span>';
+}
+if ($mode !== 'article') return '';
+
 $id = isset($id) && (int)$id > 0 ? (int)$id : (int)$modx->resource->get('id');
 $showDate = !isset($showDate) || (string)$showDate !== '0';
 $showViews = !isset($showViews) || (string)$showViews !== '0';
