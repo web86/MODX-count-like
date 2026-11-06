@@ -3,6 +3,16 @@
  * Paste into Manager without a PHP opening tag.
  */
 $mode = isset($mode) ? (string)$mode : 'article';
+if ($mode === 'list-ssr') {
+    // Fast server-rendered lists: zero queries per card, no JavaScript or cookie.
+    // Wrap the resulting complete HTML in PostEngagementHydrate (one batched SQL query).
+    $listId = isset($id) && (int)$id > 0 ? (int)$id : (int)$modx->resource->get('id');
+    if ($listId < 1 || $listId > 2147483647) return '';
+    $listAssets = rtrim($modx->getOption('assets_url'), '/') . '/components/modx-count-like/';
+    $modx->regClientCSS($listAssets . 'engagement.css');
+    return '<span class="mcl-list-views" aria-label="Просмотры">'
+        . '<svg class="mcl-eye-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg> <span>__MCL_VIEWS_' . $listId . '__</span></span>';
+}
 if ($mode === 'list') {
     // Do not query MySQL or create cookies per card. list.js batches IDs on DOM ready.
     $listId = isset($id) && (int)$id > 0 ? (int)$id : (int)$modx->resource->get('id');
