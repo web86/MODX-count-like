@@ -46,7 +46,14 @@ $esc = function ($value) {
 $attrs = ' data-mcl-id="' . $id . '" data-mcl-track="' . ($trackViews ? '1' : '0') . '" data-mcl-api="' . $esc($assetsUrl . 'api.php') . '"';
 $out = '<div class="mcl" ' . trim($attrs) . '>';
 if ($showDate) {
-    $published = (int)$resource->get('publishedon');
+    // In MODX 2 get('publishedon') may return a formatted date string, not a Unix timestamp.
+    $rawPublished = $resource->get('publishedon');
+    if (is_numeric($rawPublished)) {
+        $published = (int)$rawPublished;
+    } else {
+        $parsed = strtotime((string)$rawPublished);
+        $published = ($parsed === false) ? 0 : $parsed;
+    }
     if ($published > 0) {
         $out .= '<time class="mcl-date" datetime="' . date('Y-m-d', $published) . '">' . date('d.m.Y', $published) . '</time>';
     }
