@@ -85,10 +85,17 @@ try {
         throw new RuntimeException('MODX initialization failed');
     }
     $resource = $modx->getObject('modResource', (int)$id);
+    // MODX 2 date fields may be formatted strings (e.g. 2026-11-06 12:00:00).
+    $timestamp = static function ($raw): int {
+        if ($raw === null || $raw === '' || $raw === false) return 0;
+        if (is_numeric($raw)) return (int)$raw;
+        $parsed = strtotime((string)$raw);
+        return $parsed === false ? 0 : $parsed;
+    };
     $now = time();
     if (!$resource || !(int)$resource->get('published') || (int)$resource->get('deleted')
-        || ((int)$resource->get('pub_date') > 0 && (int)$resource->get('pub_date') > $now)
-        || ((int)$resource->get('unpub_date') > 0 && (int)$resource->get('unpub_date') <= $now)
+        || ($timestamp($resource->get('pub_date')) > $now)
+        || (($unpub = $timestamp($resource->get('unpub_date'))) > 0 && $unpub <= $now)
         || (string)$resource->get('context_key') !== 'web') {
         mcl_reply(404, array('ok' => false, 'error' => 'resource_not_found'));
     }
@@ -175,6 +182,12 @@ try {
         'liked' => (bool)$likedQuery->fetchColumn()
     ));
 } catch (Throwable $e) {
-    error_log('[MODX Count & Like] ' . $e->getMessage());
-    mcl_reply(500, array('ok' => false, 'error' => 'server_error'));
+    // Detailed diagnostics are server-side only; never expose SQL/paths to visitors.
+    $errorId = bin2hex(random_bytes(4));
+    $message = '[MODX Count & Like][' . $errorId . '] ' . get_class($e) . ': ' . $e->getMessage();
+    error_log($message);
+    if (isset($modx) && $modx instanceof modX) {
+        $modx->log(modX::LOG_LEVEL_ERROR, $message);
+    }
+    mcl_reply(500, array('ok' => false, 'error' => 'server_error', 'error_id' => $errorId));
 }
