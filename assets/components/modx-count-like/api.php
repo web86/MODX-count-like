@@ -58,9 +58,25 @@ if ($method === 'POST') {
     }
 }
 
+// Batch display mode: one read-only request for up to 100 article cards.
+$batchIds = null;
+if ($method === 'GET' && array_key_exists('ids', $_GET)) {
+    $rawIds = $_GET['ids'];
+    if (!is_string($rawIds) || strlen($rawIds) > 1100
+        || !preg_match('/^[1-9][0-9]*(?:,[1-9][0-9]*){0,99}$/D', $rawIds)) {
+        mcl_reply(400, array('ok' => false, 'error' => 'invalid_ids'));
+    }
+    $batchIds = array_values(array_unique(array_map('intval', explode(',', $rawIds))));
+    foreach ($batchIds as $batchId) {
+        if ($batchId < 1 || $batchId > 2147483647) {
+            mcl_reply(400, array('ok' => false, 'error' => 'invalid_ids'));
+        }
+    }
+}
+
 $idInput = $method === 'POST' ? (isset($_POST['id']) ? $_POST['id'] : null) : (isset($_GET['id']) ? $_GET['id'] : null);
 $id = filter_var($idInput, FILTER_VALIDATE_INT, array('options' => array('min_range' => 1)));
-if (!$id || $id > 2147483647) {
+if ($batchIds === null && (!$id || $id > 2147483647)) {
     mcl_reply(400, array('ok' => false, 'error' => 'invalid_id'));
 }
 $action = $method === 'POST' ? (isset($_POST['action']) ? (string)$_POST['action'] : '') : '';
@@ -84,6 +100,55 @@ try {
     if (!$modx->initialize('web')) {
         throw new RuntimeException('MODX initialization failed');
     }
+    if ($batchIds !== null) {
+        // Only disclose counts of publicly viewable, currently published web resources.
+        $resources = $modx->getCollection('modResource', array(
+            'id:IN' => $batchIds,
+            'published' => 1,
+            'deleted' => 0,
+            'context_key' => 'web'
+        ));
+        $now = time();
+        $toTimestamp = static function ($raw): int {
+            if ($raw === null || $raw === '' || $raw === false) return 0;
+            if (is_numeric($raw)) return (int)$raw;
+            $parsed = strtotime((string)$raw);
+            return $parsed === false ? 0 : $parsed;
+        };
+        $allowedIds = array();
+        foreach ($resources as $candidate) {
+            $publish = $toTimestamp($candidate->get('pub_date'));
+            $unpublish = $toTimestamp($candidate->get('unpub_date'));
+            if ($publish > $now || ($unpublish > 0 && $unpublish <= $now)
+                || !$candidate->checkPolicy('view')) {
+                continue;
+            }
+            $allowedIds[] = (int)$candidate->get('id');
+        }
+        $stats = array();
+        foreach ($allowedIds as $allowedId) {
+            $stats[(string)$allowedId] = array('views' => 0);
+        }
+        if ($allowedIds) {
+            $prefix = (string)$modx->getOption('table_prefix');
+            if (!preg_match('/^[A-Za-z0-9_]+$/D', $prefix)) {
+                throw new RuntimeException('Invalid table prefix');
+            }
+            if (!$modx->connect() || !($modx->pdo instanceof PDO)) {
+                throw new RuntimeException('Database connection failed');
+            }
+            $placeholders = implode(',', array_fill(0, count($allowedIds), '?'));
+            $sql = 'SELECT resource_id, views FROM `' . $prefix
+                . 'mcl_stats` WHERE resource_id IN (' . $placeholders . ')';
+            $stmt = $modx->pdo->prepare($sql);
+            $stmt->execute($allowedIds);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $stats[(string)(int)$row['resource_id']] = array('views' => (int)$row['views']);
+            }
+        }
+        mcl_reply(200, array('ok' => true, 'stats' => $stats));
+    }
+
     $resource = $modx->getObject('modResource', (int)$id);
     // MODX 2 date fields may be formatted strings (e.g. 2026-11-06 12:00:00).
     $timestamp = static function ($raw): int {
