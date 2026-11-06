@@ -107,9 +107,14 @@ try {
     $statsTable = '`' . $prefix . 'mcl_stats`';
     $viewersTable = '`' . $prefix . 'mcl_viewers`';
     $likesTable = '`' . $prefix . 'mcl_likes`';
-    $pdo = $modx->getConnection();
+    // MODX 2/xPDO 2 getConnection() returns xPDOConnection, not PDO.
+    // connect() initializes/exposes the actual PDO object as $modx->pdo.
+    if (!$modx->connect()) {
+        throw new RuntimeException('Database connection failed');
+    }
+    $pdo = $modx->pdo;
     if (!$pdo instanceof PDO) {
-        throw new RuntimeException('No PDO connection');
+        throw new RuntimeException('PDO instance is unavailable');
     }
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
