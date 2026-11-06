@@ -4,3 +4,6 @@
 .mcl-like[aria-pressed="true"]{color:#d92b56}
 .mcl-like:disabled{cursor:wait;opacity:.6}
 .mcl-like:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+
+.mcl-views,.mcl-list-views{display:inline-flex;align-items:center;gap:.3em;vertical-align:middle}
+.mcl-eye-icon{display:inline-block;width:1em;height:1em;flex:none;vertical-align:-.125em;stroke:currentColor}
