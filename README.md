@@ -23,6 +23,7 @@ MODX-count-like/
 ├── README.md
 ├── sql/install.sql
 ├── modx/snippets/PostEngagement.php   # код для сниппета в Manager
+├── modx/snippets/PostEngagementHydrate.php  # SSR-подстановка счётчиков
 ├── assets/components/modx-count-like/
 │   ├── api.php                       # публичный JSON-эндпоинт
 │   ├── engagement.js                 # vanilla JS для статьи
@@ -112,6 +113,48 @@ MODX-count-like/
 ```
 
 Не подключайте один и тот же JS дважды. Если используете статическое подключение, уберите из сниппета две строки `regClientCSS`/`regClientScript`.
+
+## Мгновенный вывод без AJAX: `mode=list-ssr` (рекомендуется)
+
+Режим `list-ssr` выводит в карточке SVG-глаз и служебный маркер ID без SQL-запроса. **После генерации всего списка** новый сниппет `PostEngagementHydrate` заменяет маркеры числовыми значениями одним подготовленным SQL-запросом (для списка до 500 уникальных ID). Браузер получает готовый HTML — нулей-заглушек и ожидания AJAX нет.
+
+**Установка:** создай в Manager второй сниппет с именем `PostEngagementHydrate` и вставь в него содержимое `modx/snippets/PostEngagementHydrate.php` без `<?php`. Обнови существующий `PostEngagement` из репозитория. SQL-таблицы, API, JS и CSS менять не нужно.
+
+**1. Внутри Fenom-чанка отдельной карточки** замени вызов на:
+
+```smarty
+{'PostEngagement' | snippet : [
+    'mode' => 'list-ssr',
+    'id' => $id
+]}
+```
+
+**2. Оберни общий результат списка в Fenom-шаблоне:**
+
+```smarty
+{set $blogHtml = 'pdoResources' | snippet : [
+    'parents' => $_modx->resource.id,
+    'tpl' => 'blogRow',
+    'limit' => 12
+]}
+{'PostEngagementHydrate' | snippet : ['html' => $blogHtml]}
+```
+
+Замени пример параметров `pdoResources` на свои. Важен порядок: **сначала** pdoResources формирует HTML карточек, **затем** PostEngagementHydrate подставляет все числа. Если используешь `pdoPage`, передавай в `PostEngagementHydrate` HTML готового списка, а не разметку пагинации.
+
+**Обычные чанки MODX**: внутри карточки вставь `[[!PostEngagement? &mode=`list-ssr` &id=`[[+id]]`]]`, затем обработай весь сформированный HTML через `PostEngagementHydrate`. Пример вызова с вложенным сниппетом в MODX:
+
+```modx
+[[!PostEngagementHydrate?
+    &html=`[[!pdoResources? &parents=`0` &tpl=`blogRow` &limit=`12`]]`
+]]
+```
+
+Если MODX-парсер/кавычки в твоём шаблоне не позволяют безопасно вкладывать вызовы, используй Fenom-вариант с переменной, приведённый выше.
+
+**Кеширование:** сам по себе SSR не гарантирует свежих значений на закешированной HTML-странице. Выполняй `PostEngagementHydrate` некешируемо и не кешируй финальную разметку списка целиком, если нужны актуальные значения при каждом запросе. Под кеширующими reverse proxy/CDN также нужна соответствующая настройка. Режим `list` с AJAX остаётся доступен, когда важнее совместимость с полным HTML-кешем.
+
+Этот режим не увеличивает просмотры, не читает и не создаёт cookie, не делает запросы из браузера и оставляет полную страницу статьи без изменений.
 
 ## Оптимизированный режим списка статей (`mode=list`)
 
