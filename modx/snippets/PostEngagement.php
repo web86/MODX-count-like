@@ -8,10 +8,11 @@ if ($mode === 'list') {
     $listId = isset($id) && (int)$id > 0 ? (int)$id : (int)$modx->resource->get('id');
     if ($listId < 1) return '';
     $listAssets = rtrim($modx->getOption('assets_url'), '/') . '/components/modx-count-like/';
+    $modx->regClientCSS($listAssets . 'engagement.css');
     $modx->regClientScript($listAssets . 'list.js');
     $listApi = htmlspecialchars($listAssets . 'api.php', ENT_QUOTES, 'UTF-8');
     return '<span class="mcl-list-views" data-mcl-list-id="' . $listId . '" data-mcl-list-api="' . $listApi
-        . '" aria-label="Просмотры"><span aria-hidden="true">◉</span> <span data-mcl-list-count>0</span></span>';
+        . '" aria-label="Просмотры"><svg class="mcl-eye-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg> <span data-mcl-list-count>0</span></span>';
 }
 if ($mode !== 'article') return '';
 
@@ -72,7 +73,7 @@ if ($showDate) {
     }
 }
 if ($showViews) {
-    $out .= '<span class="mcl-views" aria-label="Просмотры"><span aria-hidden="true">◉</span> <span data-mcl-views>' . $views . '</span></span>';
+    $out .= '<span class="mcl-views" aria-label="Просмотры"><svg class="mcl-eye-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg> <span data-mcl-views>' . $views . '</span></span>';
 }
 if ($showLikes) {
     $out .= '<button type="button" class="mcl-like" data-mcl-like aria-pressed="false" aria-label="Нравится"><span aria-hidden="true">♥</span> <span data-mcl-likes>' . $likes . '</span></button>';
